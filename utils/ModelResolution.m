@@ -1,0 +1,75 @@
+function delta = ModelResolution(FE,fwd,true_m)
+%{
+---------------------------------------------------------------------------
+Calculate the range of true_m due to FEM error
+---------------------------------------------------------------------------
+Input: 
+    FE         : The coordinate matrix with information of global
+                 coordinates and global numbering of the nodes 121x2
+    fwd        : The coordinate matrix with information of global and 
+                 local nodes numebring and the element numbering 25x9
+    true_m     : The given input 
+Output: 
+    delta      : containing all the upper and lower limit of each input
+                [delta_upper;delta_lower]
+---------------------------------------------------------------------------           
+%}
+nx = FE.nx;
+nz = FE.nz;
+%nGaussPoints = FE.nGaussPoints;% we only consider our 3x3 case
+lx = fwd.geometry.lx;
+lz = fwd.geometry.lz;
+k = fwd.k;
+nm = fwd.nm;
+delta_upper = zeros(1,nm);
+delta_lower = zeros(1,nm);
+% Calculate the vertical possible coordinates of Gauss Points
+a1 = (1-sqrt(0.6))/(2*nz)*lz;
+b1 = (sqrt(0.6))/(2*nz)*lz;
+
+a2 = (1-sqrt(0.6))/(2*nx)*lx;
+b2 = (sqrt(0.6))/(2*nz)*lx;
+% construct all the possible Z coordinates of GP 
+ZCoordinates_Upper = a1+(a1+b1)*linspace(0,2*(nz-1),nz);
+ZCoordinates_Middle = (a1+b1)*linspace(1,2*nz-1,nz);
+ZCoordinates_Lower = b1 + (a1+b1)*linspace(1,2*nz-1,nz);
+ZCoordinates = [ZCoordinates_Upper;ZCoordinates_Middle;ZCoordinates_Lower];
+ZCoordinates = ZCoordinates(:)';
+
+% construct all the possible X coordinates of GP 
+XCoordinates_Upper = a2+(a2+b2)*linspace(0,2*(nx-1),nx);
+XCoordinates_Middle = (a2+b2)*linspace(1,2*nx-1,nx);
+XCoordinates_Lower = b2 + (a2+b2)*linspace(1,2*nx-1,nx);
+XCoordinates = [XCoordinates_Upper;XCoordinates_Middle;XCoordinates_Lower];
+XCoordinates = XCoordinates(:)';
+
+switch fwd.mtype
+    case 0
+        true_d = true_m;
+        for i = 1:k
+            index = find(true_d(i)<ZCoordinates);
+            index1 = index(1);
+            delta_upper(1,i) = ZCoordinates(index1)-true_d(i);
+            delta_lower(1,i) = true_d(i)-ZCoordinates(index1-1);
+        end
+
+    case 1
+        true_b = true_m(1:k-1);
+        true_d = true_m(k:end);
+        for i = 1:k-1
+            index = find(true_b(i)<=XCoordinates);
+            index1 = index(1);
+            delta_upper(1,i) = XCoordinates(index1)-true_b(i);
+            delta_lower(1,i) = true_b(i)-XCoordinates(index1-1);
+        end
+        for i = 1:k
+            %index = find(true_d(i)<=ZCoordinates);
+            index = find(true_d(i)<ZCoordinates);
+            index1 = index(1);
+            delta_upper(1,i+k-1) = ZCoordinates(index1)-true_d(i);
+            delta_lower(1,i+k-1) = true_d(i)-ZCoordinates(index1-1);
+        end
+end
+
+delta = [delta_upper;delta_lower];
+end
