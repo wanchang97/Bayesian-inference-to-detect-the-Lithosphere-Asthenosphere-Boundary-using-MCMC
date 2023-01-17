@@ -1,0 +1,113 @@
+function [N,Nxi,Neta] = shapeFunctions( elemType, numberOfElementNodes, ...
+   posIntegrationPoints )
+%{
+--------------------------------------------------------------------------
+Input: 
+   elemType           : 0 = lines, 1=squares, 2=triangles
+numberOfElementNodes  : number of nodes per element
+posIntegrationPoints  : Position of the gauss points 
+
+       
+Output: 
+shape function Ni(xi,eta) is a function of xi and eta in reference
+coordinate
+    N        : vector of the evaluation of the shape function at integration points 
+    Nxi      : vector of derivatives of the evaluation of dN/dxi at integration points 
+    Neta     : vector of derivatives of the evaluation of dN/deta at
+                integration points
+%}
+
+switch(elemType)
+   case 0 % 1D lines
+      xi = reshape(posIntegrationPoints,[],1);
+      switch(numberOfElementNodes)
+         case 2
+            N = [(1-xi)/2 (1+xi)/2];
+            Nxi = repmat([-1/2 1/2],length(xi),1);
+            Neta = [];
+         case 3
+            N = [xi.*(xi-1)/2   (1-xi.^2)   xi.*(xi+1)/2];
+            Nxi = [xi-0.5   -2*xi    xi+0.5];
+            Neta = [];
+         otherwise
+            error('quadrature for 1D lines with %i nodes not implemented',numberOfElementNodes)
+      end
+      
+   case 1 % squares
+      xi = posIntegrationPoints(:,1);
+      eta = posIntegrationPoints(:,2);
+      switch( numberOfElementNodes )% numer of velocity or pressure nodes
+         case 1 % P0
+            N = ones( size( xi ) );
+            Nxi = zeros( size( xi ) );
+            Neta = zeros( size( xi ) );            
+         case 4 % Q1
+            N = [ (1-xi).*(1-eta)/4, ...
+                  (1+xi).*(1-eta)/4, ...
+                  (1+xi).*(1+eta)/4, ...
+                  (1-xi).*(1+eta)/4];
+            Nxi = [ (eta-1)/4, ...
+                    (1-eta)/4, ...
+                    (1+eta)/4, ...
+                   -(1+eta)/4];
+            Neta = [ (xi-1)/4, ...
+                    -(1+xi)/4, ...
+                     (1+xi)/4, ...
+                     (1-xi)/4];
+         case 9 % Q2
+            N = [xi.*(xi-1).*eta.*(eta-1)/4, xi.*(xi+1).*eta.*(eta-1)/4, ...
+                 xi.*(xi+1).*eta.*(eta+1)/4, xi.*(xi-1).*eta.*(eta+1)/4, ...
+                 (1-xi.^2).*eta.*(eta-1)/2,  xi.*(xi+1).*(1-eta.^2)/2,   ...
+                 (1-xi.^2).*eta.*(eta+1)/2,  xi.*(xi-1).*(1-eta.^2)/2,   ...
+                 (1-xi.^2).*(1-eta.^2)];
+            Nxi = [(xi-1/2).*eta.*(eta-1)/2,   (xi+1/2).*eta.*(eta-1)/2, ...
+                   (xi+1/2).*eta.*(eta+1)/2,   (xi-1/2).*eta.*(eta+1)/2, ...
+                   -xi.*eta.*(eta-1),          (xi+1/2).*(1-eta.^2),   ...
+                   -xi.*eta.*(eta+1),          (xi-1/2).*(1-eta.^2),   ...
+                   -2*xi.*(1-eta.^2)];
+            Neta = [xi.*(xi-1).*(eta-1/2)/2,    xi.*(xi+1).*(eta-1/2)/2, ...
+                    xi.*(xi+1).*(eta+1/2)/2,    xi.*(xi-1).*(eta+1/2)/2, ...
+                    (1-xi.^2).*(eta-1/2),       xi.*(xi+1).*(-eta),   ...
+                    (1-xi.^2).*(eta+1/2),       xi.*(xi-1).*(-eta),   ...
+                    (1-xi.^2).*(-2*eta)];
+         otherwise
+            error( 'quadrature for squares with %i nodes not implemented', numberOfElementNodes )
+      end
+   case 2 % triangles
+      xi = posIntegrationPoints(:,1);
+      eta = posIntegrationPoints(:,2);
+      switch( numberOfElementNodes )
+         case 1  %P0
+            N = ones( size( xi ) );
+            Nxi = zeros( size( xi ) );
+            Neta = zeros( size( xi ) );
+         case 3  %P1
+            N = [xi, eta, 1-(xi+eta)];
+            Nxi = [ ones( size( xi ) ), ...
+                    zeros( size( xi ) ), ...
+                   -ones( size( xi ) )];
+            Neta = [ zeros( size( xi ) ), ...
+                     ones( size( xi ) ), ...
+                    -ones( size( xi ) )]; 
+         case 6  %P2
+            N = [xi.*(2*xi-1),                  eta.*(2*eta-1), ...
+                 (1-2*(xi+eta)).*(1-(xi+eta)),  4*xi.*eta, ...
+                 4*eta.*(1-(xi+eta)),           4*xi.*(1-(xi+eta))]; 
+            Nxi = [4*xi-1,         zeros(size(xi)), ...
+                   -3+4*(xi+eta),  4*eta, ...
+                   -4*eta,         4*(1-2*xi-eta)]; 
+            Neta = [zeros(size(xi)), 4*eta-1, ...
+                    -3+4*(xi+eta),   4*xi, ...
+                    4*(1-xi-2*eta), -4*xi]; 
+         case 4  %P1+
+            N = [xi, eta, 1-(xi+eta), 27*xi.*eta.*(1-xi-eta)]; 
+            Nxi = [ones( size( xi ) ), zeros( size( xi ) ), ...
+                  -ones( size( xi ) ), 27*eta.*(1-2*xi-eta)]; 
+            Neta = [zeros( size( xi ) ), ones( size( xi ) ), ...
+                   -ones( size( xi ) ), 27*xi.*(1-2*eta-xi)]; 
+         otherwise
+            error( 'quadrature for triangles with %i nodes not implemented', numberOfElementNodes )
+      end
+   otherwise
+      error( 'Unknown element type: %i \nValid options are 0=1D lines, 1=squares, 2=triangles', elemType ) 
+end
